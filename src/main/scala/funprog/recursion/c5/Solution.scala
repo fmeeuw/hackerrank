@@ -6,6 +6,8 @@ import scala.io.StdIn
 /**
   * String Mingling
   * https://www.hackerrank.com/challenges/string-mingling
+  *
+  * @author Frank van Meeuwen
   */
 object Solution {
 

@@ -3,6 +3,8 @@ package funprog.recursion.c2
 /**
   * Fibonacci Numbers
   * https://www.hackerrank.com/challenges/functional-programming-warmups-in-recursion---fibonacci-numbers
+  *
+  * @author Frank van Meeuwen
   */
 object Solution {
 

@@ -4,7 +4,7 @@ package funprog.recursion.c4
   * Functions and Fractals: Sierpinski triangles
   * https://www.hackerrank.com/challenges/functions-and-fractals-sierpinski-triangles
   *
-  *
+  * @author Frank van Meeuwen
   */
  object Solution {
 

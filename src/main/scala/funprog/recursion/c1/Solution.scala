@@ -3,6 +3,8 @@ package funprog.recursion.c1
 /**
   * Computing the GCD
   * https://www.hackerrank.com/challenges/functional-programming-warmups-in-recursion---gcd
+  *
+  * @author Frank van Meeuwen
   */
 object Solution {
 

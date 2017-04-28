@@ -9,6 +9,8 @@ import scala.io.StdIn
   * There are 63 rows and 100 columns in the grid below.
   * The triangle is composed of underscores and ones as shown below.
   * The vertical segment and the slanting segments are both 16 characters in length.
+  *
+  * @author Frank van Meeuwen
   */
 object Solution {
 

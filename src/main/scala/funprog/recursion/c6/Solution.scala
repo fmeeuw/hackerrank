@@ -5,6 +5,8 @@ import scala.io.StdIn
 /**
   * String-o-Permute
   * https://www.hackerrank.com/challenges/string-o-permute
+  *
+  * @author Frank van Meeuwen
   */
 object Solution {
 
