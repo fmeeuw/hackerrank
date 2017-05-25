@@ -1,5 +1,7 @@
 package funprog.recursion.c4
 
+import scala.io.StdIn
+
 /**
   * Functions and Fractals: Sierpinski triangles
   * https://www.hackerrank.com/challenges/functions-and-fractals-sierpinski-triangles
@@ -60,7 +62,7 @@ package funprog.recursion.c4
   }
 
   def main(args: Array[String]) {
-    drawTriangles(readInt())
+    drawTriangles(StdIn.readInt())
   }
 
 }

@@ -1,5 +1,7 @@
 package funprog.recursion.c2
 
+import scala.io.StdIn
+
 /**
   * Fibonacci Numbers
   * https://www.hackerrank.com/challenges/functional-programming-warmups-in-recursion---fibonacci-numbers
@@ -16,7 +18,7 @@ object Solution {
 
   def main(args: Array[String]) {
     /** This will handle the input and output**/
-    println(fibonacci(readInt()))
+    println(fibonacci(StdIn.readInt()))
 
   }
 }

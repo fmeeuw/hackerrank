@@ -1,5 +1,7 @@
 package funprog.recursion.c1
 
+import scala.io.StdIn
+
 /**
   * Computing the GCD
   * https://www.hackerrank.com/challenges/functional-programming-warmups-in-recursion---gcd
@@ -22,7 +24,7 @@ object Solution {
 
   def main(args: Array[String]) {
     /** The part relates to the input/output. Do not change or modify it **/
-    acceptInputAndComputeGCD(readLine().trim().split(" ").map(x=>x.toInt).toList)
+    acceptInputAndComputeGCD(StdIn.readLine().trim().split(" ").map(x=>x.toInt).toList)
   }
 }
 
