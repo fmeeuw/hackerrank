@@ -1,6 +1,7 @@
 package funprog.recursion.c9
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.io.StdIn
 
 /**
