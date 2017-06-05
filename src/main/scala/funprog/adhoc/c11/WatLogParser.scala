@@ -33,5 +33,14 @@ object WatLogParser extends RegexParsers {
   def comment: Parser[Comment] = "[^\n]*".r ^^ { Comment }
   def noOp: Parser[NoOp] = "%" ~> comment ^^ { NoOp }
   def op: Parser[Op] = rule | query | command | noOp
-  def inputLine: Parser[InputLine] = op <~ "\n" ^^ { InputLine }
+  def inputLine: Parser[Op] = op <~ "\n"
+
+
+  def parseAllOrThrow(line: String): Op = {
+    val parseResult = parseAll(inputLine, line)
+    parseResult match {
+      case WatLogParser.Success(result, _) => result
+      case WatLogParser.NoSuccess(msg, _) => throw new IllegalStateException(msg)
+    }
+  }
 }

@@ -9,7 +9,7 @@ class WatLogParserTest extends WordSpec with Matchers {
   def assertSuccessResult[A](parseResult: WatLogParser.ParseResult[A], expected: A): Unit = {
     parseResult match {
       case WatLogParser.Success(result, _) => result shouldBe expected
-      case WatLogParser.Failure(msg, _) => fail(s"parsing failed: $msg.")
+      case WatLogParser.NoSuccess(msg, _) => fail(s"parsing failed: $msg.")
     }
   }
 
@@ -115,15 +115,13 @@ class WatLogParserTest extends WordSpec with Matchers {
     "be able to parse a no-op as inputLine" in {
       val comment = "';lasd';lasd;l"
       val parseResult = WatLogParser.parseAll(WatLogParser.inputLine, s"%$comment\n")
-      assertSuccessResult(parseResult, InputLine(NoOp(Comment(comment))))
+      assertSuccessResult(parseResult, NoOp(Comment(comment)))
     }
 
     "be able to parse a command as inputLine" in {
       val parseResult = WatLogParser.parseAll(WatLogParser.inputLine, s"quit!\n")
-      assertSuccessResult(parseResult, InputLine(Command))
+      assertSuccessResult(parseResult, Command)
     }
-
-
 
   }
 
