@@ -106,22 +106,40 @@ class WatLogParserTest extends WordSpec with Matchers {
       parseResult.successful shouldBe false
     }
 
-    "be able to parse a no-op" in {
-      val comment = "';lasd';lasd;l"
-      val parseResult = WatLogParser.parseAll(WatLogParser.noOp, s"%$comment")
-      assertSuccessResult(parseResult, NoOp(Comment(comment)))
+    "be able to parse empty string as a no-op" in {
+      val parseResult = WatLogParser.parseAll(WatLogParser.noOp, "")
+      assertSuccessResult(parseResult, NoOp(None))
     }
 
-    "be able to parse a no-op as inputLine" in {
+    "be able to parse a comment as no-op" in {
+      val comment = "';lasd';lasd;l"
+      val parseResult = WatLogParser.parseAll(WatLogParser.noOp, s"%$comment")
+      assertSuccessResult(parseResult, NoOp(Some(Comment(comment))))
+    }
+
+    "be able to parse empty string no-op as inputline" in {
+      val parseResult = WatLogParser.parseAll(WatLogParser.inputLine, "\n")
+      assertSuccessResult(parseResult, NoOp(None))
+    }
+
+    "be able to parse a comment no-op as inputLine" in {
       val comment = "';lasd';lasd;l"
       val parseResult = WatLogParser.parseAll(WatLogParser.inputLine, s"%$comment\n")
-      assertSuccessResult(parseResult, NoOp(Comment(comment)))
+      assertSuccessResult(parseResult, NoOp(Some(Comment(comment))))
     }
 
     "be able to parse a command as inputLine" in {
       val parseResult = WatLogParser.parseAll(WatLogParser.inputLine, s"quit!\n")
       assertSuccessResult(parseResult, Command)
     }
+
+    "be able to parse a fact as inputLine" in {
+      val term1 = Name("fact")
+      val parseResult = WatLogParser.parseAll(WatLogParser.inputLine, s"$term1.\n")
+      assertSuccessResult(parseResult, Rule(List.empty, term1))
+    }
+
+
 
   }
 

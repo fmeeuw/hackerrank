@@ -31,7 +31,7 @@ object WatLogParser extends RegexParsers {
 
   def command: Parser[Command.type] = "quit!" ^^ { _ => Command }
   def comment: Parser[Comment] = "[^\n]*".r ^^ { Comment }
-  def noOp: Parser[NoOp] = "%" ~> comment ^^ { NoOp }
+  def noOp: Parser[NoOp] = ("%" ~> comment).? ^^ { NoOp }
   def op: Parser[Op] = rule | query | command | noOp
   def inputLine: Parser[Op] = op <~ "\n"
 
