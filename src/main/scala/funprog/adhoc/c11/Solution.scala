@@ -35,10 +35,14 @@ object Solution {
           queryResult match {
             case QueryResult.Satisfied(instances) =>
               instances.foreach { assignments =>
-                println("SAT")
-                println("=====")
-                assignments.foreach { case (vari,term) =>
-                  println(s"$vari := $term")
+                if(assignments.isEmpty) {
+                  println("SAT")
+                } else {
+                  println("SAT:")
+                  println("=====")
+                  assignments.foreach { case (vari, term) =>
+                    println(s"$vari := $term")
+                  }
                 }
               }
             case QueryResult.NotSatisfied =>
