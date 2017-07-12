@@ -17,28 +17,36 @@ object Solution {
   }
 
   @tailrec
-  def handleInput(knowledgeBase: KnowledgeBase): Unit = {
-    val input: WatLogDomain.Op = WatLogParser.parseAllOrThrow(StdIn.readLine() + "\n")
-    input match {
-      case rule:Rule =>
-        println("Ok.")
-        handleInput(knowledgeBase + rule)
-      case query:Query =>
-        val queryResult = knowledgeBase.satisfies(query)
-        queryResult match {
-          case QueryResult.Satisfied(assignments) =>
-            println("SAT")
-            println(assignments)
-          case QueryResult.NotSatisfied(_) =>
-            println("UNSAT")
-        }
-        println("Ready.")
+  private def handleInput(knowledgeBase: KnowledgeBase): Unit = {
+    val parseResult = WatLogParser.parseAll(WatLogParser.inputLine, StdIn.readLine() + "\n")
+    parseResult match {
+      case WatLogParser.NoSuccess(msg, _) =>
+        println(s"Unable to parse input!: $msg")
         handleInput(knowledgeBase)
-      case Command =>
-        println("Bye.") //Terminate afterwards
-      case NoOp(_) =>
-        handleInput(knowledgeBase)
+      case WatLogParser.Success(result, _) => result match {
+        case rule:Rule =>
+          println("Ok.")
+          handleInput(knowledgeBase + rule)
+        case query:Query =>
+          val queryResult = knowledgeBase.satisfies(query)
+          queryResult match {
+            case QueryResult.Satisfied(instances) =>
+              instances.foreach { assignments =>
+                println("SAT")
+                println(assignments)
+              }
+            case QueryResult.NotSatisfied =>
+              println("UNSAT")
+          }
+          println("Ready.")
+          handleInput(knowledgeBase)
+        case Command =>
+          println("Bye.") //Terminate afterwards
+        case NoOp(_) =>
+          handleInput(knowledgeBase)
+      }
     }
+
   }
 
 }

@@ -35,32 +35,72 @@ object WatLogDomain {
     }
   }
 
+
   sealed trait QueryResult {
-    def ||(other: => QueryResult): QueryResult
-    def unary_!(): QueryResult
-    def assignments: Map[Variable, SimpleTerm]
-    def withAssignments(assignments: Map[Variable, SimpleTerm]): QueryResult
+    def setAssignmentsSubstituteOld(assignments: Assignments, substitutions: Substitutions): QueryResult
+    def ++(other: => QueryResult): QueryResult
   }
   case object QueryResult {
-    case class NotSatisfied(assignments: Map[Variable, SimpleTerm]) extends QueryResult {
-      override def ||(other: => QueryResult): QueryResult = other
 
-      override def unary_!(): QueryResult = Satisfied(assignments)
+    case object NotSatisfied extends QueryResult {
+      override def setAssignmentsSubstituteOld(assignments: Assignments, substitutions: Substitutions): QueryResult = this
 
-      override def withAssignments(newAssignments: Map[Variable, SimpleTerm]): QueryResult = {
-        this.copy(newAssignments)
+      override def ++(other: => QueryResult): QueryResult = other
+    }
+
+    case object Satisfied {
+      def apply(assignments: Assignments = Map.empty): Satisfied = Satisfied(List(assignments))
+    }
+    case class Satisfied(instances: List[Assignments]) extends QueryResult {
+      override def setAssignmentsSubstituteOld(assignments: Map[Variable, SimpleTerm], substitutions: Substitutions): QueryResult = {
+        this.copy(instances = instances.map(oldAssignments => assignments.mapValues(_.sub(substitutions ++ oldAssignments))))
+      }
+
+      override def ++(other: => QueryResult): QueryResult = other match {
+        case NotSatisfied => this
+        case Satisfied(otherInstances) => this.copy(instances = instances ++ otherInstances)
       }
     }
-    case class Satisfied(assignments: Map[Variable, SimpleTerm]) extends QueryResult {
-      override def ||(other: => QueryResult): QueryResult = this
 
-      override def unary_!(): QueryResult = NotSatisfied(assignments)
-
-      override def withAssignments(newAssignments: Map[Variable, SimpleTerm]): QueryResult = {
-        this.copy(newAssignments)
-      }
-    }
   }
+//  sealed trait SingleQueryResult {
+//    def assignments: Map[Variable, SimpleTerm]
+//    def withAssignments(assignments: Map[Variable, SimpleTerm]): QueryResult
+//  }
+//  case object SingleQueryResult {
+//    case class NotSatisfied(assignments: Map[Variable, SimpleTerm]) extends QueryResult {
+//      override def ||(other: => QueryResult): QueryResult = other
+//
+//      override def withAssignments(newAssignments: Map[Variable, SimpleTerm]): QueryResult = {
+//        this.copy(newAssignments)
+//      }
+//    }
+//    case class Satisfied(assignments: List[Map[Variable, SimpleTerm]]) extends QueryResult {
+//      override def ||(other: => QueryResult): QueryResult = this
+//
+//      override def withAssignments(newAssignments: Map[Variable, SimpleTerm]): QueryResult = {
+//        this.copy(newAssignments)
+//      }
+//    }
+//  }
+//
+//  sealed trait QueryResult {
+//    def ||(other: => QueryResult): QueryResult
+//    def assignments: Map[Variable, SimpleTerm]
+//    def withAssignments(assignments: Map[Variable, SimpleTerm]): QueryResult
+//  }
+//  case object QueryResult {
+//
+//    case class NotSatisfied(assignments: Map[Variable, SimpleTerm]) extends QueryResult with SingleQueryResult {
+//      override def ||(other: => QueryResult): QueryResult = other
+//
+//      override def withAssignments(newAssignments: Map[Variable, SimpleTerm]): QueryResult = {
+//        this.copy(newAssignments)
+//      }
+//    }
+//
+//
+//  }
 
   sealed trait ComplexTerm {
 

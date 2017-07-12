@@ -21,12 +21,15 @@ case class KnowledgeBase(rules: List[Rule]) {
       case Nil => QueryResult.Satisfied(assignments)
       case x::xs =>
         satisfies(rules)(x, assignments) match {
-          case QueryResult.Satisfied(updatedAssignments) =>
-            debug(s"Combining assignments from multiple queries... ${updatedAssignments} with $assignments")
-            satisfiesAll (rules) (xs, updatedAssignments ++ assignments)
-          case QueryResult.NotSatisfied(_) =>
+          case QueryResult.Satisfied(instances) =>
+            debug(s"${instances.size} instances of assignments match query $x")
+            instances.foldLeft[QueryResult](QueryResult.NotSatisfied) { (result, instanceAssignments) =>
+                debug(s"Continuing with next query term, for an instance of assignments: $instanceAssignments")
+                result ++ satisfiesAll(rules)(xs, instanceAssignments)
+              }
+          case QueryResult.NotSatisfied =>
             debug(s"Not satisfied for query $x")
-            QueryResult.NotSatisfied(assignments)
+            QueryResult.NotSatisfied
         }
     }
   }
@@ -37,16 +40,15 @@ case class KnowledgeBase(rules: List[Rule]) {
     query
       .substituteQueryAssignments(assignments) match {
       case simpleTerm: SimpleTerm => rules match {
-        case Nil =>
-          QueryResult.NotSatisfied(assignments)
-        case rule :: xs =>
-          satisfiesRule(rule, xs)(simpleTerm, assignments) || satisfies(xs)(simpleTerm, assignments)
+        case Nil => QueryResult.NotSatisfied//(assignments)
+        case rule :: xs => satisfiesRule(rule, xs)(simpleTerm, assignments) ++ satisfies(xs)(simpleTerm, assignments)
+
       }
       case assertion: Assertion =>
         val newAssignments = assertion.assignQueryVariables()
         assertion.queryMatches() match {
           case true => QueryResult.Satisfied(assignments ++ newAssignments)
-          case false => QueryResult.NotSatisfied(assignments)
+          case false => QueryResult.NotSatisfied//(assignments)
         }
     }
   }
@@ -67,33 +69,33 @@ case class KnowledgeBase(rules: List[Rule]) {
     val newAssignments = query.assignQueryVariables(con) ++ assignments
     debug(s"newAssignments=$newAssignments")
 
-    //The new assigments are also substituted in the query, resuling in the query being free.
+    // The new assigments are also substituted in the query.
     // (The original assignments should allready have been substituted before calling this method.)
-    // (Except when assigning non-free terms TODO)
     val assignedQuery = query.substituteQueryAssignments(newAssignments)
     debug(s"assignedQuery=$assignedQuery")
 
+    // Even after assigning, the query can contain variables.
     val matchResult = assignedQuery.queryMatches(con)
     debug(s"matchResult=$matchResult")
 
     matchResult match {
-      case MatchResult.Match(substitutions) =>
+      case MatchResult.Match(substitutions, _) =>
         val substituedQuery = assignedQuery.sub(substitutions)
         substituedQuery match {
           case q: Name =>
             // When checking the premises, we don't want to mix the assignments to the original query with the new query.
             // So an empty map of assignments is passed and the result will have the original assignments and not the ones from checking the premises.
             val satisfiesResult = satisfiesAll(rules)(premises.map(_.sub(substitutions)), Map.empty)
-            satisfiesResult.withAssignments(assignments = newAssignments.mapValues(_.sub(substitutions ++ satisfiesResult.assignments)))
+            satisfiesResult.setAssignmentsSubstituteOld(newAssignments, substitutions)
           case q: RelationalTerm =>
             val satisfiesResult = satisfiesAll(rules)(premises.map(_.sub(substitutions)), Map.empty)
-            satisfiesResult.withAssignments(assignments = newAssignments.mapValues(_.sub(substitutions ++ satisfiesResult.assignments)))
+            satisfiesResult.setAssignmentsSubstituteOld(newAssignments, substitutions)
           case _ =>
             debug(s"Expected Name or RelationalTerm found $substituedQuery")
-            QueryResult.NotSatisfied(assignments)
+            QueryResult.NotSatisfied
         }
 
-      case MatchResult.NoMatch => QueryResult.NotSatisfied(assignments)
+      case MatchResult.NoMatch => QueryResult.NotSatisfied
     }
   }
 
