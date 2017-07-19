@@ -31,7 +31,9 @@ object Solution {
           println("Ok.")
           handleInput(knowledgeBase + rule)
         case query:Query =>
+          val startTime = System.currentTimeMillis()
           val queryResult = knowledgeBase.satisfies(query)
+          val endTime = System.currentTimeMillis()
           queryResult match {
             case QueryResult.Satisfied(instances) =>
               instances.foreach { assignments =>
@@ -49,6 +51,7 @@ object Solution {
               println("UNSAT")
           }
           println("Ready.")
+          debug(s"Answered query in ${endTime - startTime} millis.")
           handleInput(knowledgeBase)
         case Command =>
           println("Bye.") //Terminate afterwards
@@ -152,38 +155,20 @@ object WatLogDomain {
     def isFree: Boolean
   }
 
-  sealed trait Assertion extends ComplexTerm {
-    /**
-      * Checks whether this term being used as query matches.
-      * This term is expected to be free otherwise an assertion error is thrown.
-      */
-    def queryMatches(): Boolean
+  case class Assertion(first: SimpleTerm, second: SimpleTerm, equals: Boolean) extends ComplexTerm {
+    override def toString: String = s"<$first ${if (equals) "=" else "!="} $second>"
 
-    /**
-      * Collect all assignments that can be done to the variables in this term,
-      * in order to possibly match.
-      */
-    def assignQueryVariables(): Assignments
-  }
-  //TODO have one case class for assertion and remove code duplication.
-  case class EqualityAssertion(first: SimpleTerm, second: SimpleTerm) extends Assertion {
-    override def toString: String = s"<$first = $second>"
-
-    override def sub(target: Variable, term: SimpleTerm): EqualityAssertion = {
-      EqualityAssertion(first.sub(target, term), second.sub(target, term))
-    }
-
-    override def queryMatches(): Boolean = {
-      first == second
+    override def sub(target: Variable, term: SimpleTerm): Assertion = {
+      copy(first = first.sub(target, term), second = second.sub(target, term))
     }
 
     override def isFree: Boolean = first.isFree && second.isFree
 
-    override def substituteQueryAssignments(assignments: Assignments): EqualityAssertion = {
-      EqualityAssertion(first.substituteQueryAssignments(assignments), second.substituteQueryAssignments(assignments))
+    override def substituteQueryAssignments(assignments: Assignments): Assertion = {
+      copy(first = first.substituteQueryAssignments(assignments), second = second.substituteQueryAssignments(assignments))
     }
 
-    override def assignQueryVariables(): Assignments = {
+    def assignQueryVariables(): Assignments = {
       val firstAssignment = first.assignQueryVariables(second)
       if (firstAssignment.isEmpty) {
         second.assignQueryVariables(first)
@@ -191,30 +176,11 @@ object WatLogDomain {
         firstAssignment
       }
     }
-  }
-  case class NonEqualityAssertion(first: SimpleTerm, second: SimpleTerm) extends Assertion {
-    override def toString: String = s"<$first /= $second>"
 
-    override def sub(target: Variable, term: SimpleTerm): NonEqualityAssertion = {
-      NonEqualityAssertion(first.sub(target, term), second.sub(target, term))
-    }
-
-    override def queryMatches(): Boolean = {
-      first != second
-    }
-
-    override def isFree: Boolean = first.isFree && second.isFree
-
-    override def substituteQueryAssignments(assignments: Assignments): NonEqualityAssertion = {
-      NonEqualityAssertion(first.substituteQueryAssignments(assignments), second.substituteQueryAssignments(assignments))
-    }
-
-    override def assignQueryVariables(): Assignments = {
-      val firstAssignment = first.assignQueryVariables(second)
-      if (firstAssignment.isEmpty) {
-        second.assignQueryVariables(first)
-      } else {
-        firstAssignment
+    def queryMatches(): Boolean = {
+      first.queryMatches(second) match {
+        case _: MatchResult.Match  => equals
+        case MatchResult.NoMatch => !equals
       }
     }
   }
@@ -253,6 +219,8 @@ object WatLogDomain {
       */
     def queryMatches(other: SimpleTerm): MatchResult
 
+    def containsVariable(vari: Variable): Boolean
+
   }
 
   case class Name(name: String) extends SimpleTerm {
@@ -273,6 +241,8 @@ object WatLogDomain {
     override val isFree: Boolean = false
 
     override def assignQueryVariables(other: SimpleTerm): Assignments = Map.empty
+
+    override def containsVariable(vari: Variable): Boolean = false
   }
   case class Variable(name: Name) extends SimpleTerm {
     override def toString: String = s"#$name"
@@ -289,7 +259,8 @@ object WatLogDomain {
     }
 
     override def queryMatches(other: SimpleTerm): MatchResult = {
-      MatchResult.Match(assignments = Map(this -> other))
+      if (other.containsVariable(this)) MatchResult.NoMatch
+      else MatchResult.Match(assignments = Map(this -> other))
     }
 
     override val isFree: Boolean = true
@@ -297,6 +268,8 @@ object WatLogDomain {
     override def assignQueryVariables(other: SimpleTerm): Assignments = {
       Map(this -> other)
     }
+
+    override def containsVariable(vari: Variable): Boolean = false
   }
   case class RelationalTerm(name: Name, simpleTerms: List[SimpleTerm]) extends SimpleTerm {
 
@@ -318,11 +291,13 @@ object WatLogDomain {
             .map { case (a: SimpleTerm, b: SimpleTerm) => a.queryMatches(b) }
             .foldLeft[MatchResult](MatchResult.Match()) { (agg, elem) =>
             agg -> elem match {
-              case (m1: MatchResult.Match, m2:MatchResult) => m1+m2
+              case (m1: MatchResult.Match, m2:MatchResult) => m1 + m2
               case _ => MatchResult.NoMatch
             }
           }
-        case vari:Variable => MatchResult.Match(Map(vari -> this))
+        case vari:Variable =>
+          if(containsVariable(vari)) MatchResult.NoMatch
+          else MatchResult.Match(Map(vari -> this))
         case _ => MatchResult.NoMatch
       }
     }
@@ -343,6 +318,10 @@ object WatLogDomain {
         case _ => Map.empty
       }
     }
+
+    override def containsVariable(vari: Variable): Boolean = {
+      simpleTerms.exists(term => term == vari || term.containsVariable(vari))
+    }
   }
 
   sealed trait Op
@@ -354,7 +333,6 @@ object WatLogDomain {
 }
 
 object WatLogParser extends RegexParsers {
-  import funprog.adhoc.c11.WatLogDomain._
 
   override def skipWhitespace: Boolean = false
 
@@ -365,8 +343,8 @@ object WatLogParser extends RegexParsers {
   def simpleTerms: Parser[List[SimpleTerm]] = repsep(simpleTerm, ", ")
   def simpleTerms1: Parser[List[SimpleTerm]] = rep1sep(simpleTerm, ", ")
 
-  def equalityAssertion: Parser[EqualityAssertion] = "<" ~> simpleTerm ~ (" = " ~> simpleTerm <~ ">") ^^ { case term1 ~ term2 => EqualityAssertion(term1, term2)}
-  def nonEqualityAssertion: Parser[NonEqualityAssertion] = "<" ~> simpleTerm ~ (" /= " ~> simpleTerm <~ ">") ^^ { case term1 ~ term2 => NonEqualityAssertion(term1, term2)}
+  def equalityAssertion: Parser[Assertion] = "<" ~> simpleTerm ~ (" = " ~> simpleTerm <~ ">") ^^ { case term1 ~ term2 => Assertion(term1, term2, true)}
+  def nonEqualityAssertion: Parser[Assertion] = "<" ~> simpleTerm ~ (" /= " ~> simpleTerm <~ ">") ^^ { case term1 ~ term2 => Assertion(term1, term2, false)}
   def complexTerm: Parser[ComplexTerm] = equalityAssertion | nonEqualityAssertion | simpleTerm
   def complexTerms: Parser[List[ComplexTerm]] = repsep(complexTerm, ", ")
   def complexTerms1: Parser[List[ComplexTerm]] = rep1sep(complexTerm, ", ")
@@ -397,11 +375,16 @@ case object KnowledgeBase {
 }
 case class KnowledgeBase(rules: List[Rule]) {
 
+  case class CacheKey(ruleCount: Int, query: ComplexTerm, assignments: Assignments)
+  val cache = new scala.collection.mutable.HashMap[CacheKey, QueryResult]()
+
   def +(rule: Rule): KnowledgeBase = {
     this.copy(rules :+ rule)
   }
 
-  def satisfies(query: Query): QueryResult = satisfiesAll(rules)(query.terms, Map.empty)
+  def satisfies(query: Query): QueryResult = {
+    satisfiesAll(rules)(query.terms, Map.empty)
+  }
 
   private def satisfiesAll(rules: List[Rule])(queries: List[ComplexTerm], assignments: Assignments): QueryResult = {
     debug(s"satisfiesAll queries: $queries, $assignments")
@@ -424,22 +407,33 @@ case class KnowledgeBase(rules: List[Rule]) {
   }
 
   private def satisfies(rules: List[Rule])(query: ComplexTerm, assignments: Assignments): QueryResult = {
-
-    //If the query has any variables that should be assigned, we substitute them first.
-    query
-      .substituteQueryAssignments(assignments) match {
-      case simpleTerm: SimpleTerm => rules match {
-        case Nil => QueryResult.NotSatisfied//(assignments)
-        case rule :: xs => satisfiesRule(rule, xs)(simpleTerm, assignments) ++ satisfies(xs)(simpleTerm, assignments)
-
-      }
-      case assertion: Assertion =>
-        val newAssignments = assertion.assignQueryVariables()
-        assertion.queryMatches() match {
-          case true => QueryResult.Satisfied(assignments ++ newAssignments)
-          case false => QueryResult.NotSatisfied//(assignments)
+    val cacheKey = CacheKey(rules.size, query, assignments)
+    if (cache.contains(cacheKey)) {
+      debug(s"Found duplicate query!! $query, previous result=${cache.get(cacheKey)}")
+      cache(cacheKey)
+    } else {
+      //If the query has any variables that should be assigned, we substitute them first.
+      val result = query
+        .substituteQueryAssignments(assignments) match {
+        case simpleTerm: SimpleTerm => rules match {
+          case Nil => QueryResult.NotSatisfied//(assignments)
+          case rule :: xs => satisfiesRule(rule, xs)(simpleTerm, assignments) ++ satisfies(xs)(simpleTerm, assignments)
         }
+        case assertion: Assertion =>
+          val newAssignments = assertion.assignQueryVariables()
+          val assignedAssertion = assertion.substituteQueryAssignments(assignments ++ newAssignments)
+          debug(s"Assigned assertion = $assignedAssertion")
+          assignedAssertion.queryMatches() match {
+            case true => QueryResult.Satisfied(assignments ++ newAssignments)
+            case false => QueryResult.NotSatisfied
+          }
+      }
+
+      cache.+=(cacheKey -> result)
+      result
     }
+
+
   }
 
   /**

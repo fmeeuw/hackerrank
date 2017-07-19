@@ -65,17 +65,32 @@ class KnowledgeBaseTest extends WordSpec with Matchers {
       val query = Query(List(relationalTermQuery, Variable(Name("b")), Variable(Name("c"))))
       kb.satisfies(query) shouldBe QueryResult.Satisfied(List(
         Map(Variable(Name("c")) -> relationalTermKb, Variable(Name("b")) -> Name("b")),
-        Map(Variable(Name("c")) -> relationalTermKb, Variable(Name("b")) -> relationalTermKb),
+        Map(Variable(Name("c")) -> relationalTermKb, Variable(Name("b")) -> relationalTermKb)
       ))
     }
 
 
     "satisfies a simple equality assertion of names in a query" in {
       val kb = KnowledgeBase.Empty
-      val query = Query(List(EqualityAssertion(Name("a"), Name("a"))))
+      val query = Query(List(Assertion(Name("a"), Name("a"), true)))
       kb.satisfies(query) shouldBe QueryResult.Satisfied()
     }
 
+    "satisfies a equality assertion that need a variable to be assigned." in {
+      val kb = KnowledgeBase(List(
+      WatLogParser.parseAll(WatLogParser.rule, "[p: a].").get,
+      WatLogParser.parseAll(WatLogParser.rule, "{([p: #x], <[r: #x] = #y>) => [q: #x, #y]}.").get
+      ))
+
+      val query = WatLogParser.parseAll(WatLogParser.query, "([q: #x, #y])?").get
+
+      val expectedAssignments = Map(
+        Variable(Name("x")) -> Name("a"),
+        Variable(Name("y")) -> RelationalTerm(Name("r"), List(Name("a")))
+      )
+
+      kb.satisfies(query) shouldBe QueryResult.Satisfied(assignments = expectedAssignments)
+    }
 
     "return multiple assignments that match, when multiple matches are possible." in {
       val kb = KnowledgeBase(List(
@@ -90,6 +105,8 @@ class KnowledgeBaseTest extends WordSpec with Matchers {
     }
 
 
+
+
   }
 
   "The queryMatches function" should {
@@ -99,6 +116,21 @@ class KnowledgeBaseTest extends WordSpec with Matchers {
       val term = WatLogParser.parseAll(WatLogParser.relationalTerm, "[p: [r: #z], #z]").get
 
       query.queryMatches(term) shouldBe MatchResult.NoMatch
+    }
+
+    "Not match a query to a term if the same variable occurs in a relation term." in {
+      val query = WatLogParser.parseAll(WatLogParser.variable, "#c").get
+      val term = WatLogParser.parseAll(WatLogParser.relationalTerm, "[p: #c]").get
+
+      query.queryMatches(term) shouldBe MatchResult.NoMatch
+      term.queryMatches(query) shouldBe MatchResult.NoMatch
+    }
+
+    "Match a relational term to another relational term with variables in it." in {
+      val query = WatLogParser.parseAll(WatLogParser.relationalTerm, "[p: #x, #y]").get
+      val term = WatLogParser.parseAll(WatLogParser.relationalTerm, "[p: #x, #y]").get
+
+      query.queryMatches(term) shouldBe MatchResult.Match(assignments = Map(Variable(Name("x"))->Variable(Name("x")), Variable(Name("y"))->Variable(Name("y"))))
     }
 
   }

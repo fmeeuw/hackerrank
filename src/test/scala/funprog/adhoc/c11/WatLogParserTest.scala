@@ -53,21 +53,21 @@ class WatLogParserTest extends WordSpec with Matchers {
       val term1 = Name("hello-there")
       val term2 = Variable(Name("kiekeboe"))
       val parseResult = WatLogParser.parseAll(WatLogParser.equalityAssertion, s"<$term1 = $term2>")
-      assertSuccessResult(parseResult, EqualityAssertion(term1, term2))
+      assertSuccessResult(parseResult, Assertion(term1, term2, true))
     }
 
     "be able to parse an nonEqualityAssertion" in {
       val term1 = Name("hello-there")
       val term2 = Variable(Name("kiekeboe"))
       val parseResult = WatLogParser.parseAll(WatLogParser.nonEqualityAssertion, s"<$term1 /= $term2>")
-      assertSuccessResult(parseResult, NonEqualityAssertion(term1, term2))
+      assertSuccessResult(parseResult, Assertion(term1, term2, false))
     }
 
     "be able to parse a complex term" in {
       val term1 = Name("hello-there")
       val term2 = Variable(Name("kiekeboe"))
       val parseResult = WatLogParser.parseAll(WatLogParser.complexTerm, s"<$term1 /= $term2>")
-      assertSuccessResult(parseResult, NonEqualityAssertion(term1, term2))
+      assertSuccessResult(parseResult, Assertion(term1, term2, false))
     }
 
     "be able to parse a fact" in {
@@ -78,13 +78,13 @@ class WatLogParserTest extends WordSpec with Matchers {
 
     "be able to parse an inference rule." in {
       val term1 = Name("fact")
-      val complexTerms = List(EqualityAssertion(Name("a"), Name("b")), Variable(Name("c")))
+      val complexTerms = List(Assertion(Name("a"), Name("b"), true), Variable(Name("c")))
       val parseResult = WatLogParser.parseAll(WatLogParser.rule, s"{(${complexTerms.mkString(", ")}) => $term1}.")
       assertSuccessResult(parseResult, Rule(complexTerms, term1))
     }
 
     "be able to parse a query" in {
-      val complexTerms =  List(EqualityAssertion(Name("a"), Name("b")), Variable(Name("c")))
+      val complexTerms =  List(Assertion(Name("a"), Name("b"), true), Variable(Name("c")))
       val parseResult = WatLogParser.parseAll(WatLogParser.query, s"(${complexTerms.mkString(", ")})?")
       assertSuccessResult(parseResult, Query(complexTerms))
     }
